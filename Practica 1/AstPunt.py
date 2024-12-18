@@ -30,6 +30,7 @@ class Nodo:
         self.h = 0
         self.padre = None
 
+    
     def get_pos(self):
         return self.fila, self.col
 
@@ -65,14 +66,29 @@ class Nodo:
 
     def actualizar_vecinos(self, grid):
         self.vecinos = []
-        if self.fila < self.total_filas - 1 and not grid[self.fila + 1][self.col].es_pared():
+        filas = self.total_filas
+        # Movimientos cardinales
+        if self.fila < filas - 1 and not grid[self.fila + 1][self.col].es_pared():
             self.vecinos.append(grid[self.fila + 1][self.col])
         if self.fila > 0 and not grid[self.fila - 1][self.col].es_pared():
             self.vecinos.append(grid[self.fila - 1][self.col])
-        if self.col < self.total_filas - 1 and not grid[self.fila][self.col + 1].es_pared():
+        if self.col < filas - 1 and not grid[self.fila][self.col + 1].es_pared():
             self.vecinos.append(grid[self.fila][self.col + 1])
         if self.col > 0 and not grid[self.fila][self.col - 1].es_pared():
             self.vecinos.append(grid[self.fila][self.col - 1])
+
+        # Movimientos diagonales
+        if self.fila > 0 and self.col > 0 and not grid[self.fila - 1][self.col - 1].es_pared():
+            self.vecinos.append(grid[self.fila - 1][self.col - 1])
+        if self.fila > 0 and self.col < filas - 1 and not grid[self.fila - 1][self.col + 1].es_pared():
+            self.vecinos.append(grid[self.fila - 1][self.col + 1])
+        if self.fila < filas - 1 and self.col > 0 and not grid[self.fila + 1][self.col - 1].es_pared():
+            self.vecinos.append(grid[self.fila + 1][self.col - 1])
+        if self.fila < filas - 1 and self.col < filas - 1 and not grid[self.fila + 1][self.col + 1].es_pared():
+            self.vecinos.append(grid[self.fila + 1][self.col + 1])
+
+    def __lt__(self, other):
+        return self.f < other.f or (self.f == other.f and self.g < other.g)
 
 def crear_grid(filas, ancho):
     grid = []
@@ -110,7 +126,9 @@ def obtener_click_pos(pos, filas, ancho):
 def heuristica(nodo1, nodo2):
     x1, y1 = nodo1.get_pos()
     x2, y2 = nodo2.get_pos()
-    return abs(x1 - x2) + abs(y1 - y2)
+    # Heurística Manhattan con un pequeño sesgo
+    return abs(x1 - x2) + abs(y1 - y2) + 0.001 * (x1 + y1)
+
 
 def reconstruir_camino(nodo_actual, draw):
     while nodo_actual.padre:
@@ -164,7 +182,7 @@ def algoritmo_astar(draw, grid, inicio, fin):
     return False, closed_list
 
 def main(ventana, ancho):
-    FILAS = 50
+    FILAS = 9
     grid = crear_grid(FILAS, ancho)
 
     inicio = None

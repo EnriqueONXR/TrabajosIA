@@ -26,8 +26,8 @@ def redimensionar_imagenes(input_dir, output_dir, image_size=(21, 28)):
                 print(f"Imagen redimensionada: {output_path}")
 
 # Directorio de entrada y salida
-input_dir = "C:\\Users\\ulise\\OneDrive\\Escritorio\\ProyectosIA\\CNN\\Dataset\\"  # Ruta donde tienes las imágenes organizadas por carpetas
-output_dir = "C:\\Users\\ulise\\OneDrive\\Escritorio\\ProyectosIA\\CNN\\DatasetRe\\"#rutas para imagenes redimencinadas
+input_dir = "C:\\Users\\kique\\Desktop\\TrabajosIA\\TrabajosIA\\Practica 3\\CNN\\Dataset\\"  # Ruta donde tienes las imágenes organizadas por carpetas
+output_dir = "C:\\Users\\kique\\Desktop\\TrabajosIA\\TrabajosIA\\Practica 3\\CNN\\DatasetRe\\"#rutas para imagenes redimencinadas
 redimensionar_imagenes(input_dir, output_dir)
 
 def cargar_dataset(dataset_dir):
@@ -53,7 +53,7 @@ def cargar_dataset(dataset_dir):
     return images, labels, class_names
 
 # Cargar el dataset
-dataset_dir = "C:\\Users\\ulise\\OneDrive\\Escritorio\\ProyectosIA\\CNN\\DatasetRe\\"
+dataset_dir = "C:\\Users\\kique\\Desktop\\TrabajosIA\\TrabajosIA\\Practica 3\\CNN\\DatasetRe\\"
 X, y, class_names = cargar_dataset(dataset_dir)
 
 print(f"Clases detectadas: {class_names}")
@@ -139,7 +139,7 @@ from tensorflow.keras.models import load_model
 model = load_model("modelo_autos.h5")
 
 # Imágenes nuevas para predecir
-new_images = ["C:\\Users\\ulise\\OneDrive\\Escritorio\\ProyectosIA\\images.jpg", "C:\\Users\\ulise\\OneDrive\\Escritorio\\ProyectosIA\\images(1).jpg"]
+new_images = ["C:\\Users\\kique\\Desktop\\TrabajosIA\\TrabajosIA\\Practica 3\\images.jpg", "C:\\Users\\kique\\Desktop\\TrabajosIA\\TrabajosIA\\Practica 3\\images(1).jpg"]
 test_images = []
 
 for image_path in new_images:
