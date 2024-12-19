@@ -1,22 +1,14 @@
 import pygame
 import random
-import pandas as pd
 import numpy as np
-import graphviz
-import tensorflow as tf
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from sklearn.model_selection import train_test_split
-from sklearn.tree import DecisionTreeClassifier, export_graphviz
-from tensorflow.python.keras.models import Sequential
-from tensorflow.python.keras.layers import Dense
-from sklearn.model_selection import train_test_split
-import os
-
+from tensorflow.keras.models import load_model
+import pickle
+from red_neuronal import entrenar_red_neuronal
+from arbol_decision import entrenar_arbol_decision
 
 # Inicializar Pygame
 pygame.init()
-os.chdir(os.path.dirname(__file__))
+
 # Dimensiones de la pantalla
 w, h = 800, 400
 pantalla = pygame.display.set_mode((w, h))
@@ -47,20 +39,19 @@ modo_auto = False  # Indica si el modo de juego es automático
 
 # Lista para guardar los datos de velocidad, distancia y salto (target)
 datos_modelo = []
-model = None
 
 # Cargar las imágenes
 jugador_frames = [
-    pygame.image.load('assets/sprites/mono_frame_1.png'),
-    pygame.image.load('assets/sprites/mono_frame_2.png'),
-    pygame.image.load('assets/sprites/mono_frame_3.png'),
-    pygame.image.load('assets/sprites/mono_frame_4.png')
+    pygame.image.load('Practica 2/assets/sprites/mono_frame_1.png'),
+    pygame.image.load('Practica 2/assets/sprites/mono_frame_2.png'),
+    pygame.image.load('Practica 2/assets/sprites/mono_frame_3.png'),
+    pygame.image.load('Practica 2/assets/sprites/mono_frame_4.png'),
 ]
 
-bala_img = pygame.image.load('assets/sprites/purple_ball.png')
-fondo_img = pygame.image.load('assets/game/fondo2.png')
-nave_img = pygame.image.load('assets/game/ufo.png')
-menu_img = pygame.image.load('assets/game/menu.png')
+bala_img = pygame.image.load('Practica 2/assets/sprites/purple_ball.png')
+fondo_img = pygame.image.load('Practica 2/assets/game/fondo2.png')
+nave_img = pygame.image.load('Practica 2/assets/game/ufo.png')
+menu_img = pygame.image.load('Practica 2/assets/game/menu.png')
 
 # Escalar la imagen de fondo para que coincida con el tamaño de la pantalla
 fondo_img = pygame.transform.scale(fondo_img, (w, h))
@@ -84,11 +75,67 @@ bala_disparada = False
 fondo_x1 = 0
 fondo_x2 = w
 
+# Cargar el modelo entrenado de la red neuronal
+#modelo_red_neuronal = None
+#modelo = load_model("modelo_red_neuronal.h5")
+
+#modelo_red_neuronal = load_model("modelo_red_neuronal.h5")
+
+def cargar_modelo():
+    global modelo_red_neuronal
+    try:
+        modelo_red_neuronal = load_model("modelo_red_neuronal.h5")  # Cargar modelo .h5
+        print("Modelo cargado correctamente.")
+    except FileNotFoundError:
+        print("No se encontró un modelo previamente entrenado.")
+    except Exception as e:
+        print(f"Error al cargar el modelo: {e}")
+
+# Función para predecir el salto usando el modelo de red neuronal
+def predecir_salto(velocidad_bala, distancia):
+    if modelo_red_neuronal:
+        # Convertir la entrada a un array NumPy compatible con el modelo
+        entrada = np.array([[velocidad_bala, distancia]], dtype=np.float32)
+        
+        # Realizar la predicción
+        prediccion = modelo_red_neuronal.predict(entrada)
+        
+        # Mostrar la predicción
+        print("Valor de predicción:", prediccion[0][0])
+        
+        # Determinar si debe saltar según el umbral (0.5)
+        if prediccion[0][0] >= 0.5:
+            return 1  # Saltar
+        else:
+            return 0  # No saltar
+    
+    # Si no hay modelo cargado, no saltar
+    print("No se ha cargado un modelo.")
+    return 0
+
+# Función para cargar el modelo entrenado de Árbol de Decisión
+def cargar_modelo_arbol():
+    global modelo_arbol_decision
+    try:
+        with open("modelo_arbol_decision.pkl", "rb") as archivo_modelo:
+            modelo_arbol_decision = pickle.load(archivo_modelo)
+            print("Modelo de Árbol de Decisión cargado correctamente.")
+    except FileNotFoundError:
+        print("No se encontró un modelo previamente entrenado de Árbol de Decisión.")
+
+# Función para predecir el salto usando el modelo de Árbol de Decisión
+def predecir_salto_arbol(velocidad_bala, distancia):
+    if modelo_arbol_decision:
+        prediccion = modelo_arbol_decision.predict([[velocidad_bala, distancia]])  # Usamos la predicción del modelo
+        #print("Valor Predicho por Árbol de Decisión:", prediccion[0])
+        return prediccion[0]  # Retorna 1 si saltó, 0 si no saltó
+    return 0  # Si no hay modelo cargado, no saltar
+
 # Función para disparar la bala
 def disparar_bala():
     global bala_disparada, velocidad_bala
     if not bala_disparada:
-        velocidad_bala = random.randint(-15, -10)  # Velocidad aleatoria negativa para la bala
+        velocidad_bala = random.randint(-8, -3)  # Velocidad aleatoria negativa para la bala
         bala_disparada = True
 
 # Función para reiniciar la posición de la bala
@@ -97,38 +144,20 @@ def reset_bala():
     bala.x = w - 50  # Reiniciar la posición de la bala
     bala_disparada = False
 
-def reset_model():
-    tf.keras.backend.clear_session()
-
- #Función para manejar el salto
+# Función para manejar el salto
 def manejar_salto():
-    global jugador, salto, salto_altura, gravedad, en_suelo
-
-    if salto:
-        jugador.y -= salto_altura   # Mover al jugador hacia arriba
-        salto_altura -= gravedad   # Aplicar gravedad (reduce la velocidad del salto)
-
-        #  Si el jugador llega al suelo, detener el salto
-        if jugador.y >= h - 100:
-            jugador.y = h - 100
-            salto = False
-            salto_altura = 15   # Restablecer la velocidad de salto
-            en_suelo = True
-
-def manejar_autosalto():
     global jugador, salto, salto_altura, gravedad, en_suelo
 
     if salto:
         jugador.y -= salto_altura  # Mover al jugador hacia arriba
         salto_altura -= gravedad  # Aplicar gravedad (reduce la velocidad del salto)
 
-        # Si el jugador llega al suelo (o ligeramente debajo), detener el salto
+        # Si el jugador llega al suelo, detener el salto
         if jugador.y >= h - 100:
-            jugador.y = h - 100  # Forzar al jugador al suelo exacto
+            jugador.y = h - 100
             salto = False
-            salto_altura = 15  # Reiniciar la velocidad inicial del salto
+            salto_altura = 15  # Restablecer la velocidad de salto
             en_suelo = True
-
 
 # Función para actualizar el juego
 def update():
@@ -175,9 +204,7 @@ def update():
     # Colisión entre la bala y el jugador
     if jugador.colliderect(bala):
         print("Colisión detectada!")
-        # train_model()
         reiniciar_juego()  # Terminar el juego y mostrar el menú
-
 
 # Función para guardar datos del modelo en modo manual
 def guardar_datos():
@@ -187,123 +214,6 @@ def guardar_datos():
     # Guardar velocidad de la bala, distancia al jugador y si saltó o no
     datos_modelo.append((velocidad_bala, distancia, salto_hecho))
 
-# Funcion para graficar los datos
-def graficar_datos():
-    # Separar datos según el valor de 'salto_hecho'
-    x1 = [x for x, y, z in datos_modelo if z == 0]
-    x2 = [y for x, y, z in datos_modelo if z == 0]
-    target0 = [z for x, y, z in datos_modelo if z == 0]
-
-    x3 = [x for x, y, z in datos_modelo if z == 1]
-    x4 = [y for x, y, z in datos_modelo if z == 1]
-    target1 = [z for x, y, z in datos_modelo if z == 1]
-
-    # Crear el gráfico 3D
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-
-    # Graficar los puntos con salto_hecho=0 en azul
-    ax.scatter(x1, x2, target0, c='blue', marker='o', label='Target=0')
-
-    # Graficar los puntos con salto_hecho=1 en rojo
-    ax.scatter(x3, x4, target1, c='red', marker='x', label='Target=1')
-
-    # Etiquetas y leyenda
-    ax.set_xlabel('x1')
-    ax.set_ylabel('x2')
-    ax.set_zlabel('target')
-    ax.legend()
-
-    plt.show()
-
-#Funcion para hacer el decision tree
-def graficar_arbol():
-    # Separar datos
-    x1 = [x for x, y, z in datos_modelo]
-    x2 = [y for x, y, z in datos_modelo]
-    target0 = [z for x, y, z in datos_modelo]
-
-    # Definir características (X) y etiquetas (y)
-    X = list(zip(x1, x2))  # Las dos primeras columnas son las características
-    y = target0  # La tercera columna es la etiqueta
-
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-    # Crear el clasificador de Árbol de Decisión
-    clf = DecisionTreeClassifier()
-
-    # # Exportar el árbol de decisión en formato DOT para su visualización
-    # dot_data = export_graphviz(clf, out_file=None, 
-    #                         feature_names=['Feature 1', 'Feature 2'],  
-    #                         class_names=['Clase 0', 'Clase 1'],  
-    #                         filled=True, rounded=True,  
-    #                         special_characters=True)  
-
-    # # Crear el gráfico con graphviz
-    # graph = graphviz.Source(dot_data)
-
-    # # Mostrar el gráfico
-    # graph.view()
-    
-def train_tree():
-    global model_tree
-    print('entrenando con arbol')
-    if len(datos_modelo) < 10:  # Requerir al menos 10 datos para el árbol
-        print("No hay datos suficientes para entrenar el árbol de decisión.")
-        return
-
-    x1 = [x for x, y, z in datos_modelo]
-    x2 = [y for x, y, z in datos_modelo]
-    target0 = [z for x, y, z in datos_modelo]
-
-    X = list(zip(x1, x2))
-    y = target0
-
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-    clf = DecisionTreeClassifier(max_depth=5, random_state=42)  # Limitar profundidad para evitar sobreajuste
-    model_tree = clf.fit(X_train, y_train)
-
-    # Evaluar el modelo
-    accuracy = clf.score(X_test, y_test)
-    print(f"Precisión del Árbol de Decisión: {accuracy:.2f}")
-
-# Entrenar modelo    
-def train_model():
-    global model
-
-    if not datos_modelo:
-        print("No hay datos suficientes para entrenar el modelo.")
-        return
-
-    # Separar datos
-    x1 = [x for x, y, z in datos_modelo]
-    x2 = [y for x, y, z in datos_modelo]
-    target0 = [z for x, y, z in datos_modelo]
-
-    # Definir características (X) y etiquetas (y)
-    X = np.array(list(zip(x1, x2)))  # Convertir a numpy array
-    y = np.array(target0)  # Convertir a numpy array
-
-    # Dividir los datos en conjuntos de entrenamiento y prueba
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-    model = Sequential([
-    Dense(4, activation='relu'),
-    Dense(1, activation='sigmoid')
-    ])
-
-    # Compilar el modelo
-    model.compile(optimizer='adam',
-                  loss='binary_crossentropy',
-                  metrics=['accuracy'])
-
-    # Entrenar el modelo
-    model.fit(X_train, y_train, epochs=30, batch_size=32, verbose=1)
-
-    # Evaluar el modelo en el conjunto de prueba
-    loss, accuracy = model.evaluate(X_test, y_test, verbose=0)
-    print(f"\nPrecisión en el conjunto de prueba: {accuracy:.2f}")
-    
 # Función para pausar el juego y guardar los datos
 def pausa_juego():
     global pausa
@@ -313,13 +223,25 @@ def pausa_juego():
     else:
         print("Juego reanudado.")
 
+
 # Función para mostrar el menú y seleccionar el modo de juego
 def mostrar_menu():
-    global menu_activo, modo_auto, modo_auto_tree
+    global menu_activo, modo_auto
+    global modelo_actual 
     pantalla.fill(NEGRO)
-    texto = fuente.render("Presiona 'A' para Auto, 'M' para Manual, 'G' para Graficar o 'Q' para Salir", False, BLANCO)
-    pantalla.blit(texto, (10 , h // 2))
-    pygame.display.flip()
+    texto = fuente.render("1.- Juego Manual", True, BLANCO)
+    texto1 = fuente.render("2.- Redes Neuronales", True, BLANCO)
+    texto2 = fuente.render("3.- Árbol de Decisión", True, BLANCO)
+    texto3 = fuente.render("4.- Salir", True, BLANCO)
+    x_centro = w // 2
+    y_inicial = h // 3
+    espacio_entre_renglones = 50  # Espaciado entre cada renglón
+
+    pantalla.blit(texto, (x_centro - texto.get_width() // 2, y_inicial))
+    pantalla.blit(texto1, (x_centro - texto1.get_width() // 2, y_inicial + espacio_entre_renglones))
+    pantalla.blit(texto2, (x_centro - texto2.get_width() // 2, y_inicial + 2 * espacio_entre_renglones))
+    pantalla.blit(texto3, (x_centro - texto3.get_width() // 2, y_inicial + 3 * espacio_entre_renglones))
+    pygame.display.flip() 
 
     while menu_activo:
         for evento in pygame.event.get():
@@ -327,23 +249,25 @@ def mostrar_menu():
                 pygame.quit()
                 exit()
             if evento.type == pygame.KEYDOWN:
-                if evento.key == pygame.K_a:
+                if evento.key == pygame.K_1:
+                    print("MODO MANUAL")
+                    modo_auto = False
+                    menu_activo = False
+                elif evento.key == pygame.K_2:
+                    print("REDES NEURONALES")
                     modo_auto = True
                     menu_activo = False
-                    if len(datos_modelo) < 10:
-                        print("No hay suficientes datos para entrenar el árbol de decisión.")
-                    else:
-                        train_tree()  # Entrenar el árbol de decisión si no se ha hecho antes
-                elif evento.key == pygame.K_m:
-                    reset_model()
-                    modo_auto = False
+                    entrenar_red_neuronal(datos_modelo)
+                    cargar_modelo()
+                    modelo_actual = "red_neuronal"
+                elif evento.key == pygame.K_3:
+                    print("ARBOL DE DECISION")
+                    modo_auto = True
                     menu_activo = False
-                elif evento.key == pygame.K_g:
-                    modo_auto = False
-                    menu_activo = False
-                    graficar_arbol()
-                    graficar_datos()
-                elif evento.key == pygame.K_q:
+                    entrenar_arbol_decision(datos_modelo)
+                    cargar_modelo_arbol()
+                    modelo_actual = "arbol"
+                elif evento.key == pygame.K_4:
                     print("Juego terminado. Datos recopilados:", datos_modelo)
                     pygame.quit()
                     exit()
@@ -385,33 +309,32 @@ def main():
                     exit()
 
         if not pausa:
-            if modo_auto:
-                # Obtener las características actuales
-                distancia = abs(jugador.x - bala.x)
-                velocidad = velocidad_bala
-
-                # Hacer una predicción
-                entrada = np.array([[velocidad, distancia]])
-                prediccion = model_tree.predict(entrada)[0] > 0.5
-
-                if prediccion == 1 and en_suelo:
-                    print("¡Saltando automáticamente!")  # Mensaje de depuración
-                    salto = True
-                    en_suelo = False
-
-            # Manejar el salto si está activado
-            if salto:
-                manejar_autosalto()
-
             # Modo manual: el jugador controla el salto
             if not modo_auto:
                 if salto:
-                    salto = True
-                    en_suelo = False
                     manejar_salto()
                 # Guardar los datos si estamos en modo manual
                 guardar_datos()
+            else:
+                distancia = abs(jugador.x - bala.x)
+                # Modo automático: el modelo decide si saltar
+                if modelo_actual == "arbol":
+                    # Usamos el modelo de árbol de decisión
+                    decision_salto = predecir_salto_arbol(velocidad_bala, distancia)
+                    #print("Arbol: ", decision_salto)
+                elif modelo_actual == "red_neuronal":
+                    # Usamos el modelo de redes neuronales
+                    decision_salto = predecir_salto(velocidad_bala, distancia)
+                   # print("REdes neu: ", decision_salto)
+                else:
+                    #No se selecciono ningun modelo
+                    decision_salto = 0
 
+                if decision_salto == 1 and en_suelo:
+                    salto = True
+                    en_suelo = False
+                if salto:
+                    manejar_salto()
             # Actualizar el juego
             if not bala_disparada:
                 disparar_bala()

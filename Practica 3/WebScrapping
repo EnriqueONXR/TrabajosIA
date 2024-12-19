@@ -1,0 +1,19 @@
+from bing_image_downloader import downloader
+
+# Carpeta principal donde se guardarán las imágenes
+output_directory = "predataset/cars"
+
+# Descargar imágenes para Chevrolet Suburban 2007
+car_model = "volkswagen jetta 2012 exterior"
+print(f"Descargando imágenes para: {car_model}")
+downloader.download(
+    car_model,
+    limit=200,
+    output_dir=output_directory,
+    adult_filter_off=True,
+    force_replace=False,
+    timeout=60,
+    verbose=True
+)
+
+print(f"Imágenes descargadas para {car_model} en: {output_directory}")
