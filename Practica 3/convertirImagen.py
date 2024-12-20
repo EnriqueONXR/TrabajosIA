@@ -30,6 +30,23 @@ def mejorar_histograma(imagen):
         canales_eq = [cv2.equalizeHist(canal) for canal in canales]
         return cv2.merge(canales_eq)
 
+# Función para invertir horizontalmente
+def invertir_horizontal(imagen):
+    return cv2.flip(imagen, 1)
+
+# Función para invertir verticalmente
+def invertir_vertical(imagen):
+    return cv2.flip(imagen, 0)
+
+# Función para invertir colores
+def invertir_colores(imagen):
+    return cv2.bitwise_not(imagen)
+
+# Función para convertir a blanco y negro
+def convertir_blanco_negro(imagen):
+    _, imagen_bn = cv2.threshold(imagen, 128, 255, cv2.THRESH_BINARY)
+    return imagen_bn
+
 # Recorrer todas las subcarpetas e imágenes en el dataset
 for root, _, files in os.walk(dataset_path):
     for archivo in files:
@@ -50,14 +67,14 @@ for root, _, files in os.walk(dataset_path):
         # Convertir la imagen a escala de grises
         imagen_gris = cv2.cvtColor(imagen, cv2.COLOR_BGR2GRAY)
 
-        # Aplicar el filtro de mejora de bordes
+        # Aplicar transformaciones
         imagen_bordes = aplicar_filtro_bordes(imagen_gris)
-
-        # Rotar la imagen
         imagen_rotada = rotar_imagen(imagen, 45)
-
-        # Mejorar píxeles (histograma)
         imagen_mejorada = mejorar_histograma(imagen)
+        imagen_invertida_h = invertir_horizontal(imagen)
+        imagen_invertida_v = invertir_vertical(imagen)
+        imagen_colores_invertidos = invertir_colores(imagen)
+        imagen_blanco_negro = convertir_blanco_negro(imagen_gris)
 
         # Crear la misma estructura de subcarpetas en la salida
         relativa_ruta = os.path.relpath(root, dataset_path)
@@ -70,6 +87,10 @@ for root, _, files in os.walk(dataset_path):
         cv2.imwrite(os.path.join(carpeta_salida, f"{base_nombre}_bordes.jpg"), imagen_bordes)
         cv2.imwrite(os.path.join(carpeta_salida, f"{base_nombre}_rotada.jpg"), imagen_rotada)
         cv2.imwrite(os.path.join(carpeta_salida, f"{base_nombre}_mejorada.jpg"), imagen_mejorada)
+        cv2.imwrite(os.path.join(carpeta_salida, f"{base_nombre}_inv_horizontal.jpg"), imagen_invertida_h)
+        cv2.imwrite(os.path.join(carpeta_salida, f"{base_nombre}_inv_vertical.jpg"), imagen_invertida_v)
+        cv2.imwrite(os.path.join(carpeta_salida, f"{base_nombre}_inv_colores.jpg"), imagen_colores_invertidos)
+        cv2.imwrite(os.path.join(carpeta_salida, f"{base_nombre}_blanco_negro.jpg"), imagen_blanco_negro)
 
         print(f"Imagen procesada y guardada: {archivo}")
 

@@ -1,19 +1,80 @@
-from bing_image_downloader import downloader
+import os
+import time
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.chrome.options import Options
+import urllib.request
 
-# Carpeta principal donde se guardarán las imágenes
+
+# Configuración del navegador
+def configure_driver(chromedriver_path, headless=True):
+    chrome_options = Options()
+    if headless:
+        chrome_options.add_argument("--headless")  # Ejecutar en modo sin cabeza
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+
+    # Cargar el servicio de ChromeDriver
+    service = Service(chromedriver_path)
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    return driver
+
+
+# Descargar imágenes con búsqueda
+def download_images_from_search(base_url, search_query, output_directory, chromedriver_path, image_selector, limit=50, scrolls=5):
+    # Construir la URL de búsqueda
+    search_url = f"{base_url}/search/pins/?q={search_query.replace(' ', '%20')}"
+    driver = configure_driver(chromedriver_path)
+    print(f"Navegando a: {search_url}")
+    driver.get(search_url)
+
+    # Esperar a que la página cargue
+    time.sleep(5)
+
+    # Desplazarse hacia abajo para cargar más contenido
+    for _ in range(scrolls):  # Ajusta el número de desplazamientos si es necesario
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(2)
+
+    # Encontrar imágenes utilizando el selector proporcionado
+    images = driver.find_elements(By.CSS_SELECTOR, image_selector)
+    print(f"Se encontraron {len(images)} imágenes.")
+
+    # Crear carpeta de salida si no existe
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
+
+    # Descargar imágenes
+    count = 1
+    for img in images:
+        if count > limit:
+            break
+        src = img.get_attribute("src")  # Puede ser "data-src" o similar en algunas páginas
+        if src and "http" in src:
+            try:
+                filename = os.path.join(output_directory, f"imagen_{count}.jpg")
+                urllib.request.urlretrieve(src, filename)
+                print(f"Imagen descargada: {filename}")
+                count += 1
+            except Exception as e:
+                print(f"No se pudo descargar la imagen {src}. Error: {e}")
+
+    driver.quit()
+    print(f"Descarga completada: {count - 1} imágenes descargadas.")
+
+
+# Parámetros generales
+base_url = "https://www.pinterest.com"  # Página base
+search_query = "volkswagen jetta 2012 exterior"  # Modelo a buscar
 output_directory = "predataset/cars"
+chromedriver_path = r"C:\Users\kique\Downloads\chromedriver-win64\chromedriver.exe"  # Cambia esto a tu ruta
+image_selector = "img"  # Selector CSS para las imágenes (ajustar según la página)
+limit = 50
+scrolls = 5  # Número de desplazamientos
 
-# Descargar imágenes para Chevrolet Suburban 2007
-car_model = "volkswagen jetta 2012 exterior"
-print(f"Descargando imágenes para: {car_model}")
-downloader.download(
-    car_model,
-    limit=200,
-    output_dir=output_directory,
-    adult_filter_off=True,
-    force_replace=False,
-    timeout=60,
-    verbose=True
-)
-
-print(f"Imágenes descargadas para {car_model} en: {output_directory}")
+# Descargar imágenes
+print(f"Buscando y descargando imágenes para: {search_query}")
+download_images_from_search(base_url, search_query, output_directory, chromedriver_path, image_selector, limit, scrolls)
+print(f"Imágenes descargadas para {search_query} en: {output_directory}")
